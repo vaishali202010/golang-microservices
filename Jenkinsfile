@@ -2,7 +2,7 @@ pipeline {
     agent {
         docker {
             image 'golang:1.22'
-            args '--network host'  // Use host network to ensure internet connectivity
+            args '--network host'
         }
     }
     
@@ -21,7 +21,6 @@ pipeline {
         stage('Build and Test') {
             steps {
                 sh '''
-                # Store the root directory
                 ROOT_DIR=$(pwd)
                 
                 for service in user-service product-service order-service payment-service inventory-service; do
@@ -35,33 +34,27 @@ pipeline {
         }
         
         stage('Build Docker Images') {
-            agent any  // Switch back to Jenkins agent for Docker operations
+            agent any
             steps {
-                checkout scm  // Need to checkout again on the new agent
+                checkout scm
                 sh '''
-                # Debug Docker location and permissions
-                which docker || echo "Docker command not found"
-                ls -la /usr/bin/docker || echo "Docker binary not accessible"
-                
                 for service in user-service product-service order-service payment-service inventory-service; do
                   echo "Building Docker image for $service..."
-                  /usr/bin/docker build -t local/$service:latest ./$service || /usr/local/bin/jenkins-docker.sh build -t local/$service:latest ./$service
+                  docker build -t local/$service:latest ./$service
                 done
                 '''
             }
         }
         
         stage('Push Docker Images') {
-            agent any  // Use Jenkins agent for Docker operations
+            agent any
             steps {
+                sh 'echo $DOCKER_HUB_CREDS_PSW | docker login -u $DOCKER_HUB_CREDS_USR --password-stdin'
                 sh '''
-                # Login to DockerHub
-                echo $DOCKER_HUB_CREDS_PSW | /usr/bin/docker login -u $DOCKER_HUB_CREDS_USR --password-stdin || echo $DOCKER_HUB_CREDS_PSW | /usr/local/bin/jenkins-docker.sh login -u $DOCKER_HUB_CREDS_USR --password-stdin
-                
                 for service in user-service product-service order-service payment-service inventory-service; do
                   echo "Tagging and pushing Docker image for $service..."
-                  /usr/bin/docker tag local/$service:latest $DOCKER_HUB_CREDS_USR/$service:latest || /usr/local/bin/jenkins-docker.sh tag local/$service:latest $DOCKER_HUB_CREDS_USR/$service:latest
-                  /usr/bin/docker push $DOCKER_HUB_CREDS_USR/$service:latest || /usr/local/bin/jenkins-docker.sh push $DOCKER_HUB_CREDS_USR/$service:latest
+                  docker tag local/$service:latest $DOCKER_HUB_CREDS_USR/$service:latest
+                  docker push $DOCKER_HUB_CREDS_USR/$service:latest
                 done
                 '''
             }
@@ -72,7 +65,7 @@ pipeline {
         always {
             script {
                 catchError(buildResult: 'SUCCESS', stageResult: 'SUCCESS') {
-                    sh '/usr/bin/docker logout || /usr/local/bin/jenkins-docker.sh logout || true'
+                    sh 'docker logout || true'
                 }
             }
             cleanWs()
