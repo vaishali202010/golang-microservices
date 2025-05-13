@@ -47,19 +47,41 @@ stage('Build Docker Images') {
     }
 }
         
-        stage('Push Docker Images') {
-            steps {
-                sh '''
-                echo $DOCKER_HUB_CREDS_PSW | /var/lib/jenkins/jenkins-docker.sh login -u $DOCKER_HUB_CREDS_USR --password-stdin
+stage('Push Docker Images') {
+    steps {
+        sh '''
+        echo $DOCKER_HUB_CREDS_PSW | /var/lib/jenkins/jenkins-docker.sh login -u $DOCKER_HUB_CREDS_USR --password-stdin
+        
+        # Set Docker client timeout environment variables
+        export DOCKER_CLIENT_TIMEOUT=300
+        export COMPOSE_HTTP_TIMEOUT=300
+        
+        for service in user-service product-service order-service payment-service inventory-service; do
+            echo "Tagging and pushing Docker image for $service..."
+            /var/lib/jenkins/jenkins-docker.sh tag local/$service:latest $DOCKER_HUB_CREDS_USR/$service:latest
+            
+            # Add retry logic with progressively longer waits
+            attempt=1
+            max_attempts=5
+            
+            until /var/lib/jenkins/jenkins-docker.sh push $DOCKER_HUB_CREDS_USR/$service:latest || [ $attempt -gt $max_attempts ]
+            do
+                echo "Push attempt $attempt failed! Waiting before retry..."
+                sleep $((30 * attempt)) # Wait longer between each retry
+                attempt=$((attempt + 1))
                 
-                for service in user-service product-service order-service payment-service inventory-service; do
-                  echo "Tagging and pushing Docker image for $service..."
-                  /var/lib/jenkins/jenkins-docker.sh tag local/$service:latest $DOCKER_HUB_CREDS_USR/$service:latest
-                  /var/lib/jenkins/jenkins-docker.sh push $DOCKER_HUB_CREDS_USR/$service:latest
-                done
-                '''
-            }
-        }
+                # Re-login before retry (token might expire)
+                echo $DOCKER_HUB_CREDS_PSW | /var/lib/jenkins/jenkins-docker.sh login -u $DOCKER_HUB_CREDS_USR --password-stdin
+            done
+            
+            if [ $attempt -gt $max_attempts ]; then
+                echo "Failed to push $service after $max_attempts attempts!"
+                exit 1
+            fi
+        done
+        '''
+    }
+}
     }
     
     post {
