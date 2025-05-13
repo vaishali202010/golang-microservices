@@ -3,6 +3,7 @@ pipeline {
 
     environment {
         DOCKER_HUB_CREDS = credentials('dockerhub-credentials')
+        GOCACHE = '/tmp/go-cache' // Set Go cache to a writable location
     }
 
     stages {
@@ -16,11 +17,14 @@ pipeline {
             agent {
                 docker {
                     image 'golang:1.22'
-                    args '-v /go/pkg/mod:/go/pkg/mod' // optional: cache Go modules
+                    args '-v /go/pkg/mod:/go/pkg/mod' // Optional: Go module cache
                 }
             }
             steps {
                 sh '''
+                mkdir -p $GOCACHE
+                export GOCACHE=$GOCACHE
+
                 for service in user-service product-service order-service payment-service inventory-service; do
                   cd $service
                   echo "Building and testing $service..."
