@@ -1,5 +1,5 @@
 pipeline {
-    agent any  // Use a single agent for all stages
+    agent any  // Use the Jenkins agent for the entire pipeline
     
     environment {
         DOCKER_HUB_CREDS = credentials('dockerhub-credentials')
@@ -31,13 +31,13 @@ pipeline {
         stage('Build Docker Images') {
             steps {
                 sh '''
-                # Print diagnostic info
+                # Print Docker diagnostic info
+                echo "Docker version: $(docker --version)"
                 echo "Current directory: $(pwd)"
-                echo "Docker path: $(which docker)"
                 
                 for service in user-service product-service order-service payment-service inventory-service; do
                   echo "Building Docker image for $service..."
-                  /var/lib/jenkins/jenkins-docker.sh build -t local/$service:latest ./$service
+                  docker build -t local/$service:latest ./$service
                 done
                 '''
             }
@@ -46,12 +46,12 @@ pipeline {
         stage('Push Docker Images') {
             steps {
                 sh '''
-                echo $DOCKER_HUB_CREDS_PSW | /var/lib/jenkins/jenkins-docker.sh login -u $DOCKER_HUB_CREDS_USR --password-stdin
+                echo $DOCKER_HUB_CREDS_PSW | docker login -u $DOCKER_HUB_CREDS_USR --password-stdin
                 
                 for service in user-service product-service order-service payment-service inventory-service; do
                   echo "Tagging and pushing Docker image for $service..."
-                  /var/lib/jenkins/jenkins-docker.sh tag local/$service:latest $DOCKER_HUB_CREDS_USR/$service:latest
-                  /var/lib/jenkins/jenkins-docker.sh push $DOCKER_HUB_CREDS_USR/$service:latest
+                  docker tag local/$service:latest $DOCKER_HUB_CREDS_USR/$service:latest
+                  docker push $DOCKER_HUB_CREDS_USR/$service:latest
                 done
                 '''
             }
@@ -60,8 +60,12 @@ pipeline {
     
     post {
         always {
-            sh '/var/lib/jenkins/jenkins-docker.sh logout || true'
-            cleanWs()
+            script {
+                catchError(buildResult: 'SUCCESS', stageResult: 'SUCCESS') {
+                    sh 'docker logout || true'
+                }
+                cleanWs()
+            }
         }
     }
 }
