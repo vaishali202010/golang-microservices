@@ -1,42 +1,41 @@
 pipeline {
-    agent any
-
+    agent {
+        docker {
+            image 'golang:1.22'
+            args '--network host'  // Use host network to ensure internet connectivity
+        }
+    }
+    
     environment {
         DOCKER_HUB_CREDS = credentials('dockerhub-credentials')
-        GOCACHE = '/tmp/go-cache' // Set Go cache to a writable location
+        GOCACHE = '/tmp/go-cache'
     }
-
+    
     stages {
         stage('Checkout') {
             steps {
                 checkout scm
             }
         }
-
+        
         stage('Build and Test') {
-            agent {
-                docker {
-                    image 'golang:1.22'
-                    args '-v /go/pkg/mod:/go/pkg/mod' // Optional: Go module cache
-                }
-            }
             steps {
                 sh '''
-                mkdir -p $GOCACHE
-                export GOCACHE=$GOCACHE
-
+                # Store the root directory
+                ROOT_DIR=$(pwd)
+                
                 for service in user-service product-service order-service payment-service inventory-service; do
-                  cd $service
                   echo "Building and testing $service..."
+                  cd "$ROOT_DIR/$service"
                   go mod tidy
                   go test ./... || true
-                  cd ..
                 done
                 '''
             }
         }
-
+        
         stage('Build Docker Images') {
+            agent any  // Switch back to Jenkins agent for Docker operations
             steps {
                 sh '''
                 for service in user-service product-service order-service payment-service inventory-service; do
@@ -46,8 +45,9 @@ pipeline {
                 '''
             }
         }
-
+        
         stage('Push Docker Images') {
+            agent any  // Use Jenkins agent for Docker operations
             steps {
                 sh 'echo $DOCKER_HUB_CREDS_PSW | docker login -u $DOCKER_HUB_CREDS_USR --password-stdin'
                 sh '''
@@ -60,7 +60,7 @@ pipeline {
             }
         }
     }
-
+    
     post {
         always {
             sh 'docker logout'
@@ -68,7 +68,6 @@ pipeline {
         }
     }
 }
-
 
 
 
