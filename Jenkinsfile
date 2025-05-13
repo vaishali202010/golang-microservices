@@ -1,24 +1,19 @@
 pipeline {
-    agent {
-        docker {
-            image 'golang:1.22'
-            args '--network host'
-        }
-    }
+    agent any  // Use the Jenkins agent for the entire pipeline
     
     environment {
         DOCKER_HUB_CREDS = credentials('dockerhub-credentials')
-        GOCACHE = '/tmp/go-cache'
     }
     
     stages {
-        stage('Checkout') {
-            steps {
-                checkout scm
+        stage('Build and Test Go Code') {
+            agent {
+                docker {
+                    image 'golang:1.22'
+                    args '--network host'
+                    reuseNode true  // Important: reuse the same node
+                }
             }
-        }
-        
-        stage('Build and Test') {
             steps {
                 sh '''
                 ROOT_DIR=$(pwd)
@@ -34,10 +29,12 @@ pipeline {
         }
         
         stage('Build Docker Images') {
-            agent any
             steps {
-                checkout scm
                 sh '''
+                # Print Docker diagnostic info
+                echo "Docker version: $(docker --version)"
+                echo "Current directory: $(pwd)"
+                
                 for service in user-service product-service order-service payment-service inventory-service; do
                   echo "Building Docker image for $service..."
                   docker build -t local/$service:latest ./$service
@@ -47,10 +44,10 @@ pipeline {
         }
         
         stage('Push Docker Images') {
-            agent any
             steps {
-                sh 'echo $DOCKER_HUB_CREDS_PSW | docker login -u $DOCKER_HUB_CREDS_USR --password-stdin'
                 sh '''
+                echo $DOCKER_HUB_CREDS_PSW | docker login -u $DOCKER_HUB_CREDS_USR --password-stdin
+                
                 for service in user-service product-service order-service payment-service inventory-service; do
                   echo "Tagging and pushing Docker image for $service..."
                   docker tag local/$service:latest $DOCKER_HUB_CREDS_USR/$service:latest
@@ -67,12 +64,11 @@ pipeline {
                 catchError(buildResult: 'SUCCESS', stageResult: 'SUCCESS') {
                     sh 'docker logout || true'
                 }
+                cleanWs()
             }
-            cleanWs()
         }
     }
 }
-
 
 
 
