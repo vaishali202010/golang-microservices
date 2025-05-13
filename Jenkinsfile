@@ -32,20 +32,20 @@ pipeline {
             }
         }
         
-        stage('Build Docker Images') {
-            steps {
-                sh '''
-                # Print diagnostic info
-                echo "Current directory: $(pwd)"
-                echo "Docker path: $(which docker)"
-                
-                for service in user-service product-service order-service payment-service inventory-service; do
-                  echo "Building Docker image for $service..."
-                  /var/lib/jenkins/jenkins-docker.sh build -t local/$service:latest ./$service
-                done
-                '''
-            }
-        }
+stage('Build Docker Images') {
+    steps {
+        sh '''
+        # Print diagnostic info
+        echo "Current directory: $(pwd)"
+        echo "Docker path: $(which docker)"
+        
+        for service in user-service product-service order-service payment-service inventory-service; do
+          echo "Building Docker image for $service..."
+          /var/lib/jenkins/jenkins-docker.sh build --network host -t local/$service:latest ./$service
+        done
+        '''
+    }
+}
         
         stage('Push Docker Images') {
             steps {
