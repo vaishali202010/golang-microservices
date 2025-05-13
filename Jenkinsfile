@@ -1,5 +1,5 @@
 pipeline {
-    agent any  // Use a single agent for all stages
+    agent any
     
     environment {
         DOCKER_HUB_CREDS = credentials('dockerhub-credentials')
@@ -10,12 +10,16 @@ pipeline {
             agent {
                 docker {
                     image 'golang:1.22'
-                    args '--network host'
-                    reuseNode true  // Important: reuse the same node
+                    args '--network host -v /tmp/go-cache:/tmp/go-cache'
+                    reuseNode true
                 }
             }
             steps {
                 sh '''
+                # Set Go cache to a writable location
+                export GOCACHE=/tmp/go-cache
+                mkdir -p $GOCACHE
+                
                 ROOT_DIR=$(pwd)
                 
                 for service in user-service product-service order-service payment-service inventory-service; do
