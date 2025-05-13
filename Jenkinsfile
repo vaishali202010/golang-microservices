@@ -1,18 +1,24 @@
 pipeline {
     agent any
-    
+
     environment {
         DOCKER_HUB_CREDS = credentials('dockerhub-credentials')
     }
-    
+
     stages {
         stage('Checkout') {
             steps {
                 checkout scm
             }
         }
-        
+
         stage('Build and Test') {
+            agent {
+                docker {
+                    image 'golang:1.22'
+                    args '-v /go/pkg/mod:/go/pkg/mod' // optional: cache Go modules
+                }
+            }
             steps {
                 sh '''
                 for service in user-service product-service order-service payment-service inventory-service; do
@@ -25,7 +31,7 @@ pipeline {
                 '''
             }
         }
-        
+
         stage('Build Docker Images') {
             steps {
                 sh '''
@@ -36,8 +42,7 @@ pipeline {
                 '''
             }
         }
-        
-        // Optional: Push to DockerHub if credentials are configured
+
         stage('Push Docker Images') {
             steps {
                 sh 'echo $DOCKER_HUB_CREDS_PSW | docker login -u $DOCKER_HUB_CREDS_USR --password-stdin'
@@ -51,14 +56,15 @@ pipeline {
             }
         }
     }
-    
+
     post {
         always {
             sh 'docker logout'
-            cleanWs() // Clean workspace after build
+            cleanWs()
         }
     }
 }
+
 
 
 
