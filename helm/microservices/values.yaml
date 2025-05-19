@@ -218,3 +218,8 @@ resources:
 # tolerations: []
 
 # affinity: {}
+
+# Add service configuration to ensure backward compatibility
+service:
+  type: ClusterIP
+  port: 80
