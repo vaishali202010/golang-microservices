@@ -104,16 +104,6 @@ stage('Push Docker Images') {
 
 
 
-
-
-
-
-
-
-
-
-
-
 // pipeline {
 //     agent {
 //         docker {
@@ -258,4 +248,3 @@ stage('Push Docker Images') {
 //             sh 'docker logout'
 //         }
 //     }
-// }
