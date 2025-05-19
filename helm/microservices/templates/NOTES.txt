@@ -4,19 +4,12 @@ Your application has been deployed successfully to the {{ .Values.global.namespa
 
 Services deployed:
 {{- range $key, $val := .Values.services }}
-- {{ $val.name }}: Port {{ $val.port }} ({{ $val.image.repository }}:{{ $val.image.tag }})
+- {{ $val.name }}: Port {{ $val.port }}
 {{- end }}
 
 PostgreSQL database:
 - Host: {{ .Values.global.postgresql.host }}
 - Database: {{ .Values.global.postgresql.database }}
 
-To get the status of your deployments, run:
-  kubectl get deployments -n {{ .Values.global.namespace | default "default" }}
-
 To access the services:
   kubectl port-forward svc/user-service -n {{ .Values.global.namespace | default "default" }} 8000:8000
-  kubectl port-forward svc/product-service -n {{ .Values.global.namespace | default "default" }} 8001:8000
-  kubectl port-forward svc/order-service -n {{ .Values.global.namespace | default "default" }} 8002:8000
-  kubectl port-forward svc/payment-service -n {{ .Values.global.namespace | default "default" }} 8003:8000
-  kubectl port-forward svc/inventory-service -n {{ .Values.global.namespace | default "default" }} 8004:8000

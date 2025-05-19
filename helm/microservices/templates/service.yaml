@@ -7,8 +7,6 @@ metadata:
   namespace: {{ $.Values.global.namespace | default "default" }}
   labels:
     app: {{ $val.name }}
-    chart: {{ $.Chart.Name }}-{{ $.Chart.Version }}
-    release: {{ $.Release.Name }}
 spec:
   type: ClusterIP
   ports:
