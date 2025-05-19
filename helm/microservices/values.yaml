@@ -223,3 +223,10 @@ resources:
 service:
   type: ClusterIP
   port: 80
+
+# Add autoscaling configuration to ensure backward compatibility
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
